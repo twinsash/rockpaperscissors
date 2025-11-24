@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPS Dojo Battle</title>
+    <link href="https://fonts.googleapis.com/css2?family=Shojumaru&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #2b2b2b;
+            color: #f4e4bc;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Dojo Floor Pattern */
+        .dojo-bg {
+            background-color: #dcb35c;
+            background-image: 
+                linear-gradient(45deg, #d6ad55 25%, transparent 25%, transparent 75%, #d6ad55 75%, #d6ad55), 
+                linear-gradient(45deg, #d6ad55 25%, transparent 25%, transparent 75%, #d6ad55 75%, #d6ad55);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 30px;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.6);
+            position: relative;
+        }
+
+        .wood-panel {
+            background: #5d4037;
+            border-top: 4px solid #3e2723;
+            border-bottom: 4px solid #3e2723;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .title-font {
+            font-family: 'Shojumaru', cursive;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        /* Custom Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #f4e4bc;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #8d6e63;
+            border-radius: 2px;
+        }
+
+        /* Victory Overlay */
+        #victory-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 50;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleUp { 
+            0% { transform: scale(0.5); opacity: 0; } 
+            50% { transform: scale(1.2); } 
+            100% { transform: scale(1); opacity: 1; } 
+        }
+
+        .winner-announce {
+            animation: scaleUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header / Controls -->
+    <div class="wood-panel p-4 z-10">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <div class="text-center md:text-left">
+                <h1 class="text-3xl title-font text-yellow-100">Dojo Battle</h1>
+                <p class="text-xs text-yellow-200 opacity-70 tracking-widest">ROCK • PAPER • SCISSORS</p>
+            </div>
+
+            <!-- Controls Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-x-6 gap-y-2 w-full md:w-auto bg-black/20 p-3 rounded-lg border border-yellow-900/30">
+                
+                <!-- Counts -->
+                <div class="flex flex-col">
+                    <label class="text-xs text-stone-300 mb-1 flex justify-between">
+                        <span>🪨 Rock</span> <span id="val-rock">5</span>
+                    </label>
+                    <input type="range" id="rock-count" min="3" max="10" value="5" class="w-full">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs text-stone-300 mb-1 flex justify-between">
+                        <span>📄 Paper</span> <span id="val-paper">5</span>
+                    </label>
+                    <input type="range" id="paper-count" min="3" max="10" value="5" class="w-full">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs text-stone-300 mb-1 flex justify-between">
+                        <span>✂️ Scissors</span> <span id="val-scissors">5</span>
+                    </label>
+                    <input type="range" id="scissors-count" min="3" max="10" value="5" class="w-full">
+                </div>
+
+                <!-- Attributes -->
+                <div class="flex flex-col">
+                    <label class="text-xs text-stone-300 mb-1 flex justify-between">
+                        <span>⚡ Speed</span>
+                    </label>
+                    <input type="range" id="speed-val" min="1" max="10" value="3" class="w-full">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs text-stone-300 mb-1 flex justify-between">
+                        <span>📐 Size</span>
+                    </label>
+                    <input type="range" id="size-val" min="20" max="60" value="40" class="w-full">
+                </div>
+            </div>
+
+            <button id="restart-btn" class="bg-yellow-700 hover:bg-yellow-600 text-white border-b-4 border-yellow-900 active:border-0 active:mt-1 font-bold py-2 px-6 rounded shadow-lg transition-all title-font">
+                FIGHT!
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div class="flex-grow relative dojo-bg overflow-hidden flex items-center justify-center">
+        <canvas id="battle-canvas" class="block w-full h-full"></canvas>
+
+        <!-- Stats Overlay (Top Right) -->
+        <div class="absolute top-4 right-4 bg-black/60 backdrop-blur-sm p-3 rounded text-sm border border-white/10 pointer-events-none select-none">
+            <div class="flex items-center gap-2 mb-1"><span class="text-xl">🪨</span> <span id="stat-rock" class="font-bold">0</span></div>
+            <div class="flex items-center gap-2 mb-1"><span class="text-xl">📄</span> <span id="stat-paper" class="font-bold">0</span></div>
+            <div class="flex items-center gap-2"><span class="text-xl">✂️</span> <span id="stat-scissors" class="font-bold">0</span></div>
+        </div>
+    </div>
+
+    <!-- Victory Screen -->
+    <div id="victory-screen">
+        <h2 class="title-font text-6xl text-yellow-400 mb-2 winner-announce" id="winner-title">VICTORY</h2>
+        <div class="text-9xl mb-6 winner-announce" id="winner-icon">🏆</div>
+        <p class="text-white/80 text-xl mb-8">The Dojo has been conquered.</p>
+        <button id="overlay-restart-btn" class="bg-red-700 hover:bg-red-600 text-white text-xl border-b-4 border-red-900 active:border-0 font-bold py-3 px-8 rounded shadow-lg transition-all title-font">
+            RESET BATTLE
+        </button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('battle-canvas');
+        const ctx = canvas.getContext('2d');
+        const victoryScreen = document.getElementById('victory-screen');
+        const winnerTitle = document.getElementById('winner-title');
+        const winnerIcon = document.getElementById('winner-icon');
+
+        // Inputs
+        const inputs = {
+            rock: document.getElementById('rock-count'),
+            paper: document.getElementById('paper-count'),
+            scissors: document.getElementById('scissors-count'),
+            speed: document.getElementById('speed-val'),
+            size: document.getElementById('size-val')
+        };
+        
+        // Display Values
+        const displays = {
+            rock: document.getElementById('val-rock'),
+            paper: document.getElementById('val-paper'),
+            scissors: document.getElementById('val-scissors')
+        };
+
+        // Stats
+        const stats = {
+            rock: document.getElementById('stat-rock'),
+            paper: document.getElementById('stat-paper'),
+            scissors: document.getElementById('stat-scissors')
+        };
+
+        // Update display values on slider change
+        Object.keys(displays).forEach(key => {
+            inputs[key].addEventListener('input', (e) => {
+                displays[key].innerText = e.target.value;
+            });
+        });
+
+        // Game Constants
+        const TYPES = {
+            ROCK: 'rock',
+            PAPER: 'paper',
+            SCISSORS: 'scissors'
+        };
+
+        const ASSETS = {
+            rock: '🪨',
+            paper: '📜',
+            scissors: '✂️'
+        };
+
+        let entities = [];
+        let animationId;
+        let isGameOver = false;
+
+        class Entity {
+            constructor(type, x, y) {
+                this.type = type;
+                this.x = x;
+                this.y = y;
+                this.size = parseInt(inputs.size.value);
+                
+                // Random velocity based on speed slider
+                const speedMult = parseInt(inputs.speed.value);
+                const angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(angle) * speedMult;
+                this.vy = Math.sin(angle) * speedMult;
+                
+                // Cooldown to prevent instant multi-collisions
+                this.cooldown = 0; 
+                this.scale = 0; // Animation pop-in
+            }
+
+            update(width, height) {
+                // Update Size dynamically
+                this.size = parseInt(inputs.size.value);
+                const speedMult = parseInt(inputs.speed.value);
+
+                // Normalize velocity to match current speed slider
+                const currentSpeed = Math.hypot(this.vx, this.vy);
+                if (currentSpeed > 0) {
+                    this.vx = (this.vx / currentSpeed) * speedMult;
+                    this.vy = (this.vy / currentSpeed) * speedMult;
+                }
+
+                // Move
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Wall Bounce
+                const radius = this.size / 2;
+
+                if (this.x - radius < 0) {
+                    this.x = radius;
+                    this.vx *= -1;
+                } else if (this.x + radius > width) {
+                    this.x = width - radius;
+                    this.vx *= -1;
+                }
+
+                if (this.y - radius < 0) {
+                    this.y = radius;
+                    this.vy *= -1;
+                } else if (this.y + radius > height) {
+                    this.y = height - radius;
+                    this.vy *= -1;
+                }
+
+                // Cooldown decay
+                if (this.cooldown > 0) this.cooldown--;
+                
+                // Pop-in animation
+                if (this.scale < 1) this.scale += 0.05;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.scale(this.scale, this.scale);
+                ctx.font = `${this.size}px Arial`; // Use a standard font for emoji rendering consistency
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // Shadow
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 4;
+
+                ctx.fillText(ASSETS[this.type], 0, 0);
+                
+                // Optional: visual indicator for winner streak? (Not requested, kept simple)
+                ctx.restore();
+            }
+        }
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function initGame() {
+            cancelAnimationFrame(animationId);
+            resizeCanvas();
+            entities = [];
+            isGameOver = false;
+            victoryScreen.style.display = 'none';
+
+            const counts = {
+                rock: parseInt(inputs.rock.value),
+                paper: parseInt(inputs.paper.value),
+                scissors: parseInt(inputs.scissors.value)
+            };
+
+            const spawnEntity = (type) => {
+                const padding = 60;
+                const x = padding + Math.random() * (canvas.width - padding * 2);
+                const y = padding + Math.random() * (canvas.height - padding * 2);
+                entities.push(new Entity(type, x, y));
+            };
+
+            for (let i = 0; i < counts.rock; i++) spawnEntity(TYPES.ROCK);
+            for (let i = 0; i < counts.paper; i++) spawnEntity(TYPES.PAPER);
+            for (let i = 0; i < counts.scissors; i++) spawnEntity(TYPES.SCISSORS);
+
+            updateStats();
+            animate();
+        }
+
+        function resolveBattle(a, b) {
+            // Rules: Rock > Scissors, Scissors > Paper, Paper > Rock
+            let winner = null;
+            let loser = null;
+
+            if (a.type === b.type) return; // Draw
+
+            if (a.type === TYPES.ROCK && b.type === TYPES.SCISSORS) { winner = a; loser = b; }
+            else if (a.type === TYPES.SCISSORS && b.type === TYPES.ROCK) { winner = b; loser = a; }
+            
+            else if (a.type === TYPES.SCISSORS && b.type === TYPES.PAPER) { winner = a; loser = b; }
+            else if (a.type === TYPES.PAPER && b.type === TYPES.SCISSORS) { winner = b; loser = a; }
+            
+            else if (a.type === TYPES.PAPER && b.type === TYPES.ROCK) { winner = a; loser = b; }
+            else if (a.type === TYPES.ROCK && b.type === TYPES.PAPER) { winner = b; loser = a; }
+
+            if (winner && loser) {
+                loser.type = winner.type;
+                loser.cooldown = 20; // Invulnerability frames after change
+                winner.cooldown = 10;
+                
+                // Visual effect for conversion
+                loser.scale = 1.3; // Pulse effect
+            }
+        }
+
+        function checkCollisions() {
+            for (let i = 0; i < entities.length; i++) {
+                for (let j = i + 1; j < entities.length; j++) {
+                    const a = entities[i];
+                    const b = entities[j];
+
+                    const dx = b.x - a.x;
+                    const dy = b.y - a.y;
+                    const dist = Math.hypot(dx, dy);
+                    const minDist = (a.size + b.size) / 2 * 0.8; // 0.8 to allow slight overlap (looks better for emojis)
+
+                    if (dist < minDist) {
+                        // Physics Bounce
+                        // Simple elastic collision logic
+                        const angle = Math.atan2(dy, dx);
+                        const sin = Math.sin(angle);
+                        const cos = Math.cos(angle);
+
+                        // Rotate velocity
+                        const vx1 = a.vx * cos + a.vy * sin;
+                        const vy1 = a.vy * cos - a.vx * sin;
+                        const vx2 = b.vx * cos + b.vy * sin;
+                        const vy2 = b.vy * cos - b.vx * sin;
+
+                        // Swap velocity on collision axis
+                        // To prevent sticking, we nudge them apart slightly
+                        const overlap = minDist - dist;
+                        const nudgeX = (overlap / 2) * Math.cos(angle);
+                        const nudgeY = (overlap / 2) * Math.sin(angle);
+                        
+                        a.x -= nudgeX; 
+                        a.y -= nudgeY;
+                        b.x += nudgeX;
+                        b.y += nudgeY;
+
+                        // Apply new velocities
+                        a.vx = vx2 * cos - vy1 * sin;
+                        a.vy = vy2 * cos + vx1 * sin;
+                        b.vx = vx1 * cos - vy2 * sin;
+                        b.vy = vy1 * cos + vx2 * sin;
+
+                        // Game Logic
+                        if (a.cooldown === 0 && b.cooldown === 0) {
+                            resolveBattle(a, b);
+                        }
+                    }
+                }
+            }
+        }
+
+        function updateStats() {
+            const counts = { rock: 0, paper: 0, scissors: 0 };
+            entities.forEach(e => counts[e.type]++);
+
+            stats.rock.textContent = counts.rock;
+            stats.paper.textContent = counts.paper;
+            stats.scissors.textContent = counts.scissors;
+
+            // Check Win Condition
+            // A win happens if total entities > 0 AND only 1 type exists
+            const livingTypes = [counts.rock > 0, counts.paper > 0, counts.scissors > 0].filter(Boolean).length;
+            
+            if (livingTypes === 1 && entities.length > 1 && !isGameOver) {
+                isGameOver = true;
+                
+                let winningType = '';
+                if (counts.rock > 0) winningType = TYPES.ROCK;
+                else if (counts.paper > 0) winningType = TYPES.PAPER;
+                else winningType = TYPES.SCISSORS;
+
+                setTimeout(() => showVictory(winningType), 500);
+            }
+        }
+
+        function showVictory(type) {
+            let titleText = "";
+            let colorClass = "";
+            
+            if (type === TYPES.ROCK) {
+                titleText = "ROCK SMASH!";
+                winnerTitle.className = "title-font text-5xl md:text-6xl text-stone-400 mb-2 winner-announce";
+            } else if (type === TYPES.PAPER) {
+                titleText = "PAPER COVERS ALL!";
+                winnerTitle.className = "title-font text-5xl md:text-6xl text-yellow-100 mb-2 winner-announce";
+            } else {
+                titleText = "SCISSORS CUT!";
+                winnerTitle.className = "title-font text-5xl md:text-6xl text-red-400 mb-2 winner-announce";
+            }
+
+            winnerTitle.textContent = titleText;
+            winnerIcon.textContent = ASSETS[type];
+            victoryScreen.style.display = 'flex';
+        }
+
+        function animate() {
+            if (isGameOver && victoryScreen.style.display === 'flex') {
+                // Stop animation loop if game over screen is showing
+                // But we might want to keep them moving in background? 
+                // Let's keep them moving slowly or freeze. The prompt says "stop animation".
+                return; 
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            entities.forEach(e => {
+                e.update(canvas.width, canvas.height);
+                e.draw(ctx);
+            });
+
+            checkCollisions();
+            updateStats();
+
+            if (!isGameOver) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        document.getElementById('restart-btn').addEventListener('click', initGame);
+        document.getElementById('overlay-restart-btn').addEventListener('click', initGame);
+
+        // Start initially
+        initGame();
+
+    </script>
+</body>
+</html>
